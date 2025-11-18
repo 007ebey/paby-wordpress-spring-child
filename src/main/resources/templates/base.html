@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <title th:replace="${pageTitle} :: title">Default Title</title>  <!-- Add your CSS, JS links here -->
+</head>
+<body>
+
+<!-- Include Header Fragment -->
+<header th:replace="fragments/header :: header"></header>
+
+<!-- Main Content Area -->
+<main th:fragment="content">
+    <!-- Page specific content goes here -->
+</main>
+
+<!-- Include Footer Fragment -->
+<footer th:replace="fragments/footer :: footer"></footer>
+
+</body>
+</html>

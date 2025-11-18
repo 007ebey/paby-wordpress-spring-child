@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout">
+<head>
+    <title th:fragment="title">Home Page</title>
+</head>
+<body>
+
+<div layout:decorate="base">
+    <div layout:fragment="content">
+        <h1>Welcome to the Home Page</h1>
+        <p>This is the main content of the home page.</p>
+    </div>
+</div>
+
+<!-- Footer fragment included here -->
+<footer layout:fragment="footer">
+    <p>&copy; 2025 Your Company. All rights reserved.</p>
+</footer>
+
+</body>
+</html>
