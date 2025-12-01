@@ -26,7 +26,6 @@ public class PostTypeField {
 
     @Column(columnDefinition = "jsonb")
     @Convert(converter = JsonMapConverter.class)
-    @JdbcTypeCode(SqlTypes.JSON)
     private Map<String, Object> defaultValue = new HashMap<>();
 
     @ManyToOne

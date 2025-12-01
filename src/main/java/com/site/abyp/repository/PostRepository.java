@@ -14,4 +14,5 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 
     Optional<Post> findBySlug(String slug);
 
+    boolean existsBySlug(String slug);
 }

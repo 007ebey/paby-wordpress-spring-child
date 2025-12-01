@@ -11,6 +11,8 @@ public record PostDTO(
         String title,
         String content,
 
+        String slug,
+
         Long authorId,
         String authorName,
 

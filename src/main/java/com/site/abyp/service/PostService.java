@@ -1,15 +1,19 @@
 package com.site.abyp.service;
+import com.site.abyp.dto.FieldDTO;
 import com.site.abyp.dto.PostDTO;
+import com.site.abyp.dto.PostTypeDTO;
 import com.site.abyp.model.Post;
+import com.site.abyp.model.PostType;
+import com.site.abyp.model.User;
 import com.site.abyp.repository.PostRepository;
+import com.site.abyp.repository.PostTypeRepository;
+import com.site.abyp.repository.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -17,11 +21,16 @@ import java.util.stream.Collectors;
 public class PostService {
 
     private final PostRepository postRepository;
-    private final PostTypeService postTypeService;
+    private final PostTypeRepository postTypeRepository;
+    private final UserRepository userRepository;
 
-    public PostService(PostRepository postRepository, PostTypeService postTypeService) {
+    public PostService(PostRepository postRepository,
+                       PostTypeRepository postTypeRepository,
+                       UserRepository userRepository
+    ) {
         this.postRepository = postRepository;
-        this.postTypeService = postTypeService;
+        this.postTypeRepository = postTypeRepository;
+        this.userRepository = userRepository;
     }
 
     /* --------------------------------
@@ -63,9 +72,6 @@ public class PostService {
      * FIND — BY POST TYPE (archive)
      * -------------------------------- */
     public List<PostDTO> findByType(String type) {
-
-        // Optional: validate that type exists in PostType
-        postTypeService.getByName(type);
 
         return postRepository.findByPostType_Name(type)
                 .stream()
@@ -129,6 +135,7 @@ public class PostService {
         return new PostDTO(
                 post.getId(),
                 post.getTitle(),
+                post.getSlug(),
                 post.getContent(),
                 authorId,
                 authorName,
@@ -142,7 +149,138 @@ public class PostService {
         );
     }
 
+    public List<String> validateRequiredFields(PostDTO dto, PostTypeDTO type) {
+        Map<String, Object> input = dto.meta();
+        Map<String, FieldDTO> schemaFields = type.fields();
 
+        List<String> missing = new ArrayList<>();
+        for (Map.Entry<String, FieldDTO> entry : schemaFields.entrySet()) {
+            validateFieldRecursively(
+                    entry.getValue(),
+                    input,
+                    entry.getKey(),
+                    missing
+            );
+        }
 
+        return missing;
+    }
 
+    private void validateFieldRecursively(FieldDTO field,
+                                          Map<String, Object> input,
+                                          String path,
+                                          List<String> missing) {
+        boolean required = field.required();
+        Object value = input != null ? input.get(field.name()) : null;
+        if (required && (value == null || value.toString().isBlank())) {
+            missing.add(path);
+            return;
+        }
+        if (field.subFields() == null || field.subFields().isEmpty()) {
+            return;
+        }
+
+        if (!(value instanceof Map)) {
+            if (required) missing.add(path + "(must be an object)");
+            return;
+        }
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> nested = (Map<String, Object>)  value;
+
+        for (FieldDTO sub: field.subFields()) {
+            validateFieldRecursively(
+                    sub,
+                    nested,
+                    path + "." + sub.name(),
+                    missing
+            );
+        }
+    }
+
+    public PostDTO create(PostDTO dto, String typeName) {
+
+        PostType postType = postTypeRepository
+                .findByName(typeName)
+                .orElseThrow(() -> new RuntimeException("Invalid post type"));
+
+        User author = userRepository.findById(dto.authorId())
+                .orElseThrow(() -> new RuntimeException("Invalid author ID"));
+
+        Post post = new Post();
+        post.setTitle(dto.title());
+        post.setContent(dto.content());
+        post.setPublished(dto.published());
+        post.setAuthor(author);
+        post.setPostType(postType);
+
+        post.setMeta(dto.meta());
+
+        if (dto.slug() != null) {
+            post.setSlug(dto.slug());
+        } else {
+            post.setSlug(generateSlug(dto.title()));
+        }
+
+        Post saved = postRepository.save(post);
+        return toDTO(saved);
+    }
+
+    private String generateSlug(String title) {
+        if (title == null || title.isBlank()) {
+            throw new IllegalArgumentException("Title cannot be empty when generating a slug");
+        }
+
+        String slug = title.toLowerCase();
+
+        slug = slug.replaceAll("[^a-z0-9]", "-");
+        slug = slug.replaceAll("(^-+|-+$)", "");
+        slug = slug.replaceAll("-{2,}", "");
+        String uniqueSlug = slug;
+        int counter = 1;
+        while (postRepository.existsBySlug(uniqueSlug)) {
+            uniqueSlug = slug + "-" + counter;
+            counter++;
+        }
+        return uniqueSlug;
+    }
+
+    public PostDTO collectSchemeFields(PostDTO dto, PostTypeDTO type) {
+        Map<String, Object> incoming = dto.meta() != null ? dto.meta() : new HashMap<>();
+        Map<String, Object> collected = new HashMap<>();
+        List<String> missing = new ArrayList<>();
+        for (FieldDTO field : type.fields().values()) {
+            String key = field.name();
+            if (field.required()) {
+                if (!incoming.containsKey(key) ||  incoming.get(key) == null || incoming.get(key).toString().trim().isEmpty()) {
+                   missing.add(key);
+                   continue;
+                }
+            }
+            if (incoming.containsKey(key)) {
+                collected.put(key, incoming.get(key));
+            }
+        }
+        if(!missing.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Missing required fields: " + String.join(", ", missing)
+            );
+        }
+
+        return new PostDTO(
+                dto.id(),
+                dto.title(),
+                dto.content(),
+                dto.slug(),
+                dto.authorId(),
+                dto.authorName(),
+                dto.postTypeId(),
+                dto.postTypeName(),
+                dto.published(),
+                dto.createdAt(),
+                dto.updatedAt(),
+                dto.version(),
+                collected
+        );
+    }
 }

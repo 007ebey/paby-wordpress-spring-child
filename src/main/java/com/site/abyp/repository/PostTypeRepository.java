@@ -12,6 +12,5 @@ public interface PostTypeRepository extends JpaRepository<PostType, Long> {
     // Optional: find by name if you need it
     boolean existsByName(String name);
     Optional<PostType> findByName(String name);
-
 }
 

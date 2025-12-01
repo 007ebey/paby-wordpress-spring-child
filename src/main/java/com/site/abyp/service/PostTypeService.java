@@ -89,7 +89,4 @@ public class PostTypeService {
        return toDTO(postType);
     }
 
-
-
-
 }

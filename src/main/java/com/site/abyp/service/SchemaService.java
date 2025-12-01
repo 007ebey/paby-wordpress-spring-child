@@ -12,9 +12,7 @@ import com.site.abyp.repository.PostTypeRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -40,7 +38,11 @@ public class SchemaService {
             fields.values().forEach(fieldDTO -> saveFieldRecursively(fieldDTO, saved, null));
         }
 
-        return toDTO(saved);
+        // 🔥 RELOAD — Critical!
+        PostType reloaded = postTypeRepository.findById(saved.getId())
+                .orElseThrow();
+
+        return toDTO(reloaded);
     }
 
     public PostTypeDTO update(Long id, PostTypeDTO dto) {
@@ -87,13 +89,18 @@ public class SchemaService {
     }
 
     private  PostTypeDTO toDTO(PostType postType) {
-        Map<String, FieldDTO> fieldMap = postType.getFields()
-                .stream()
-                .filter(f -> f.getParentField() == null)
-                .collect(Collectors.toMap(
-                        PostTypeField::getName,
-                        this::toFieldDTO
-                ));
+        Map<String, FieldDTO> fieldMap =
+                Optional.ofNullable(postType.getFields())
+                        .orElse(Collections.emptyList())      // prevents NPE
+                        .stream()
+                        .filter(f -> f.getParentField() == null)
+                        .collect(Collectors.toMap(
+                                PostTypeField::getName,
+                                this::toFieldDTO,
+                                (a, b) -> b,                  // merge function if duplicate names
+                                LinkedHashMap::new            // keeps insertion order
+                        ));
+
 
         return new PostTypeDTO(
                 postType.getId(),
@@ -121,7 +128,9 @@ public class SchemaService {
     private final ObjectMapper mapper = new ObjectMapper();
 
     private PostTypeField saveFieldRecursively(FieldDTO dto, PostType postType, PostTypeField parent) {
+
         PostTypeField field;
+
         if (dto.id() != null) {
             field = postTypeFieldRepository.findById(dto.id())
                     .orElse(new PostTypeField());
@@ -135,31 +144,61 @@ public class SchemaService {
         field.setType(dto.type());
         field.setRequired(dto.required());
 
-        Map<String, Object> defaultMap = new HashMap<>();
-        try {
-            Object dtoValue = dto.defaultValue();
-            if (dtoValue instanceof Map<?, ?> map) {
-                // Safe cast using ObjectMapper
-                defaultMap = mapper.convertValue(map, new TypeReference<>() {});
-            } else if (dtoValue instanceof String str && !str.isBlank()) {
-                // String JSON → Map
-                defaultMap = mapper.readValue(str, new TypeReference<>() {});
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("Invalid defaultValue for field: " + dto.name(), e);
-        }
+        // ---- FIXED DEFAULT VALUE HANDLING ----
+        field.setDefaultValue(convertToJsonbMap(dto.defaultValue(), dto.name()));
 
-        field.setDefaultValue(defaultMap);
-
+        // ---- RECURSE SUBFIELDS ----
         PostTypeField saved = postTypeFieldRepository.save(field);
+
         if (dto.subFields() != null) {
-            List<PostTypeField> subFieldEntities = dto.subFields()
-                    .stream()
+            List<PostTypeField> subs = dto.subFields().stream()
                     .map(sub -> saveFieldRecursively(sub, postType, saved))
-                    .toList();
-            saved.setSubFields(subFieldEntities);
+                    .collect(Collectors.toCollection(ArrayList::new));
+            saved.setSubFields(subs);
         }
 
         return postTypeFieldRepository.save(saved);
     }
+
+    private Map<String, Object> convertToJsonbMap(Object value, String fieldName) {
+
+        if (value == null) {
+            return new HashMap<>();
+        }
+
+        try {
+            if (value instanceof Map<?, ?> map) {
+                // Already JSON object
+                return mapper.convertValue(map, new TypeReference<>() {});
+            }
+
+            if (value instanceof List<?> list) {
+                // Wrap array
+                return Map.of("value", list);
+            }
+
+            if (value instanceof String str) {
+                str = str.trim();
+
+                // Try to parse JSON object or array
+                if (str.startsWith("{") || str.startsWith("[")) {
+                    return mapper.readValue(str, new TypeReference<>() {});
+                }
+
+                // Otherwise treat as simple string
+                return Map.of("value", str);
+            }
+
+            if (value instanceof Number || value instanceof Boolean) {
+                return Map.of("value", value);
+            }
+
+        } catch (Exception e) {
+            throw new RuntimeException("Invalid defaultValue for field: " + fieldName, e);
+        }
+
+        throw new RuntimeException("Invalid defaultValue for field: " + fieldName);
+    }
+
+
 }

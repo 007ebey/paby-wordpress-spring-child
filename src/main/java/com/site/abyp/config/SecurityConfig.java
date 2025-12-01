@@ -17,6 +17,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/",
+                                "/api/posts/**",
                                 "/api/schema",
                                 "/api/schema/**",
                                 "/index",           // removed .html because URL paths usually don't include file extensions
@@ -38,6 +39,10 @@ public class SecurityConfig {
                         .logoutUrl("/logout")
                         .logoutSuccessUrl("/index")
                         .permitAll()
+                ).csrf(csrf -> csrf
+                        .ignoringRequestMatchers("/api/schema/**")
+                ).csrf(csrf -> csrf
+                        .ignoringRequestMatchers("/api/posts/**")
                 );
 
         // Optional: disable CSRF for testing, but keep enabled in prod

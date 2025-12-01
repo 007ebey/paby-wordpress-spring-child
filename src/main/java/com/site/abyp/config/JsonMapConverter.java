@@ -5,35 +5,39 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
+import org.postgresql.util.PGobject;
+
 
 import java.util.HashMap;
 import java.util.Map;
 
-@Converter
-public class JsonMapConverter implements AttributeConverter<Map, String> {
+@Converter(autoApply = false)
+public class JsonMapConverter implements AttributeConverter<Map<String, Object>, PGobject> {
 
-    private  static final ObjectMapper mapper = new ObjectMapper();
-
+    private static final ObjectMapper mapper = new ObjectMapper();
 
     @Override
-    public String convertToDatabaseColumn(Map attribute) {
-        if (attribute == null) return "{}";
+    public PGobject convertToDatabaseColumn(Map<String, Object> attribute) {
         try {
-            return mapper.writeValueAsString(attribute);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException("Could not covert to JSON",e);
+            PGobject jsonObject = new PGobject();
+            jsonObject.setType("jsonb");
+            jsonObject.setValue(attribute == null ? "{}" : mapper.writeValueAsString(attribute));
+            return jsonObject;
+        } catch (Exception e) {
+            throw new RuntimeException("Could not convert Map to PGobject(JSONB)", e);
         }
     }
 
     @Override
-    public Map<String, Object> convertToEntityAttribute(String dbData) {
-        if (dbData == null) return new HashMap<>();
+    public Map<String, Object> convertToEntityAttribute(PGobject dbData) {
+        if (dbData == null || dbData.getValue() == null) {
+            return new HashMap<>();
+        }
         try {
-            return mapper.readValue(dbData, new TypeReference<Map<String, Object>>() {});
+            return mapper.readValue(dbData.getValue(),
+                    new TypeReference<Map<String, Object>>() {});
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("Could not convert String to JSON", e);
+            throw new RuntimeException("Could not convert PGobject(JSONB) to Map", e);
         }
     }
-
-
 }
