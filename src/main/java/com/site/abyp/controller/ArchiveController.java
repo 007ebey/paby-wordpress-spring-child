@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import java.util.List;
 
 @Controller
-@RequestMapping("/page/{type}")
+@RequestMapping("/post/{type}")
 public class ArchiveController {
 
     private final PostTypeService postTypeService;

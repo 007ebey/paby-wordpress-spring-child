@@ -59,6 +59,14 @@ public class SchemaControllerTest {
                 .andExpect(jsonPath("$.fields.title.type").value("text"))
                 .andExpect(jsonPath("$.fields.title.required").value(true))
                 .andExpect(jsonPath("$.fields.title.defaultValue").value("Untitled"));
+    }
+
+    @Test
+    public void testGetSchemaByName() throws Exception {
+        FieldDTO seoField = new FieldDTO(20L, "seo", "text", false, null, List.of());
+        PostTypeDTO articleDto = new PostTypeDTO(3L, "article", "Article Content Type", Map.of("seo", seoField));
+
+        when(schemaService.getByName("article")).thenReturn(articleDto);
 
         mockMvc.perform(get("/api/schema/article"))
                 .andExpect(status().isOk())
@@ -67,6 +75,6 @@ public class SchemaControllerTest {
                 .andExpect(jsonPath("$.fields.seo.name").value("seo"))
                 .andExpect(jsonPath("$.fields.seo.type").value("text"))
                 .andExpect(jsonPath("$.fields.seo.required").value(false));
-
     }
+
 }

@@ -11,33 +11,28 @@ import org.postgresql.util.PGobject;
 import java.util.HashMap;
 import java.util.Map;
 
-@Converter(autoApply = false)
-public class JsonMapConverter implements AttributeConverter<Map<String, Object>, PGobject> {
+@Converter
+public class JsonMapConverter implements AttributeConverter<Map<String, Object>, String> {
 
     private static final ObjectMapper mapper = new ObjectMapper();
 
     @Override
-    public PGobject convertToDatabaseColumn(Map<String, Object> attribute) {
+    public String convertToDatabaseColumn(Map<String, Object> attribute) {
         try {
-            PGobject jsonObject = new PGobject();
-            jsonObject.setType("jsonb");
-            jsonObject.setValue(attribute == null ? "{}" : mapper.writeValueAsString(attribute));
-            return jsonObject;
+            return attribute == null ? "{}" : mapper.writeValueAsString(attribute);
         } catch (Exception e) {
-            throw new RuntimeException("Could not convert Map to PGobject(JSONB)", e);
+            throw new IllegalArgumentException("JSON writing error", e);
         }
     }
 
     @Override
-    public Map<String, Object> convertToEntityAttribute(PGobject dbData) {
-        if (dbData == null || dbData.getValue() == null) {
-            return new HashMap<>();
-        }
+    public Map<String, Object> convertToEntityAttribute(String dbData) {
         try {
-            return mapper.readValue(dbData.getValue(),
-                    new TypeReference<Map<String, Object>>() {});
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException("Could not convert PGobject(JSONB) to Map", e);
+            return dbData == null || dbData.isBlank()
+                    ? new HashMap<>()
+                    : mapper.readValue(dbData, new TypeReference<>() {});
+        } catch (Exception e) {
+            throw new IllegalArgumentException("JSON reading error", e);
         }
     }
 }

@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -57,5 +58,19 @@ public class PostController {
         PostDTO created = postService.create(cleaned, type.name());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(created);
+    }
+
+    @GetMapping("/{postType}")
+    public ResponseEntity<?> getPostsByType(@PathVariable String postType) {
+        PostTypeDTO type = schemaService.getByName(postType);
+        if (type == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of(
+                            "error", "Post type does exist",
+                            "postType", postType
+                    ));
+        }
+        List<PostDTO> posts = postService.findAllByType(type);
+        return ResponseEntity.ok(posts);
     }
 }

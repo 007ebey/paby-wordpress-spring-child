@@ -283,4 +283,17 @@ public class PostService {
                 collected
         );
     }
+
+    public List<PostDTO> findAllByType(PostTypeDTO postTypeDTO) {
+        if (postTypeDTO == null || postTypeDTO.name() == null) {
+            return List.of(); // or throw error if you prefer
+        }
+
+        String typeName = postTypeDTO.name();
+
+        return postRepository.findByPostType_Name(typeName)
+                .stream()
+                .map(this::toDTO)     // your entity → dto converter
+                .toList();
+    }
 }
