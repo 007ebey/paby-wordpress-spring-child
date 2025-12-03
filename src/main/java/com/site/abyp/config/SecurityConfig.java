@@ -18,6 +18,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/",
                                 "/api/posts/**",
+                                "/post/**",
                                 "/api/schema",
                                 "/api/schema/**",
                                 "/index",           // removed .html because URL paths usually don't include file extensions

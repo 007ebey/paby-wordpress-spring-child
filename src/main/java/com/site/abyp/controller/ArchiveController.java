@@ -34,7 +34,9 @@ public class ArchiveController {
         List<PostDTO> posts = postService.findByType(type);
         model.addAttribute("postType", postType);
         model.addAttribute("posts", posts);
-        return "archive-" + type;
+
+        model.addAttribute("contentView", type + "/archive" );
+        return "index";
     }
 
 }

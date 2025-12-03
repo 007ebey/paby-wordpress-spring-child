@@ -135,8 +135,8 @@ public class PostService {
         return new PostDTO(
                 post.getId(),
                 post.getTitle(),
-                post.getSlug(),
                 post.getContent(),
+                post.getSlug(),
                 authorId,
                 authorName,
                 postTypeId,
