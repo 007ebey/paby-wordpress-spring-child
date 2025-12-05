@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -97,6 +98,22 @@ public class PostService {
         existing.setContent(updated.getContent());
         existing.setPostType(updated.getPostType());
         existing.setMeta(updated.getMeta());
+
+        return toDTO(postRepository.save(existing));
+    }
+
+    public PostDTO update(Long id, PostDTO updated) {
+        Post existing = postRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Post not found"));
+
+        PostType postType = postTypeRepository.findByName(updated.postTypeName()).orElseThrow(NoSuchElementException::new);
+
+        existing.setTitle(updated.title());
+        existing.setSlug(updated.slug());
+        existing.setContent(updated.content());
+        existing.setPostType(postType);
+        existing.setMeta(updated.meta());
+        existing.setUpdatedAt(LocalDateTime.now());
 
         return toDTO(postRepository.save(existing));
     }
@@ -213,7 +230,6 @@ public class PostService {
         post.setPublished(dto.published());
         post.setAuthor(author);
         post.setPostType(postType);
-
         post.setMeta(dto.meta());
 
         if (dto.slug() != null) {
@@ -274,8 +290,8 @@ public class PostService {
                 dto.slug(),
                 dto.authorId(),
                 dto.authorName(),
-                dto.postTypeId(),
-                dto.postTypeName(),
+                type.id(),
+                type.name(),
                 dto.published(),
                 dto.createdAt(),
                 dto.updatedAt(),

@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 
 @RestController
 @RequestMapping("/api/posts")
@@ -72,5 +73,26 @@ public class PostController {
         }
         List<PostDTO> posts = postService.findAllByType(type);
         return ResponseEntity.ok(posts);
+    }
+
+    @PutMapping("/{postType}")
+    public ResponseEntity<?> updatePost(
+            @PathVariable String postType,
+            @RequestBody PostDTO dto
+    ) {
+        PostTypeDTO type = schemaService.getByName(postType);
+        if (type == null) {
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(Map.of(
+                            "error", "Post type does not exist",
+                            "postType", postType
+                    ));
+        }
+        PostDTO existing = postService.findBySlugAndType(dto.slug(), postType);
+        PostDTO cleaned = postService.collectSchemeFields(dto, type);
+        System.out.println("-------- DEBUG" + cleaned.postTypeName());
+        PostDTO update = postService.update(existing.id(), cleaned);
+        return  ResponseEntity.ok(update);
     }
 }
